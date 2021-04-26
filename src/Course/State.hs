@@ -38,8 +38,7 @@ exec ::
   State s a
   -> s
   -> s
-exec =
-  error "todo: Course.State#exec"
+exec st s = snd $ runState st s
 
 -- | Run the `State` seeded with `s` and retrieve the resulting value.
 --
@@ -48,8 +47,11 @@ eval ::
   State s a
   -> s
   -> a
-eval =
-  error "todo: Course.State#eval"
+eval st s = fst $ runState st s
+
+-- | Auxiliary Constructor
+state :: (s -> (a, s)) -> State s a
+state f = State { runState = f }
 
 -- | A `State` where the state also distributes into the produced value.
 --
@@ -57,8 +59,7 @@ eval =
 -- (0,0)
 get ::
   State s s
-get =
-  error "todo: Course.State#get"
+get = state $ \s -> (s, s)
 
 -- | A `State` where the resulting state is seeded with the given value.
 --
@@ -67,8 +68,7 @@ get =
 put ::
   s
   -> State s ()
-put =
-  error "todo: Course.State#put"
+put s = state $ const ((), s)
 
 -- | Implement the `Functor` instance for `State s`.
 --
@@ -79,8 +79,8 @@ instance Functor (State s) where
     (a -> b)
     -> State s a
     -> State s b
-  (<$>) =
-    error "todo: Course.State#(<$>)"
+  (<$>) f State { runState = g } = state $
+      \s -> let (a, s') = g s in (f a, s')
 
 -- | Implement the `Applicative` instance for `State s`.
 --
@@ -96,14 +96,16 @@ instance Applicative (State s) where
   pure ::
     a
     -> State s a
-  pure =
-    error "todo: Course.State pure#instance (State s)"
+  pure a = state $ \s -> (a, s)
+
   (<*>) ::
     State s (a -> b)
     -> State s a
     -> State s b
-  (<*>) =
-    error "todo: Course.State (<*>)#instance (State s)"
+  (<*>) kf ka = state $
+          \s -> let (f, s')  = runState kf s
+                    (a, s'') = runState ka s'
+                in (f a, s'')
 
 -- | Implement the `Monad` instance for `State s`.
 --
@@ -120,8 +122,9 @@ instance Monad (State s) where
     (a -> State s b)
     -> State s a
     -> State s b
-  (=<<) =
-    error "todo: Course.State (=<<)#instance (State s)"
+  f =<< sa = state $
+      \s -> let (a, t) = runState sa s
+            in runState (f a) t
 
 -- | Find the first element in a `List` that satisfies a given predicate.
 -- It is possible that no element is found, hence an `Optional` result.
@@ -142,8 +145,8 @@ findM ::
   (a -> f Bool)
   -> List a
   -> f (Optional a)
-findM =
-  error "todo: Course.State#findM"
+findM c Nil = pure Empty
+findM c (x :. xs) = c x >>= \b -> if b then pure (Full x) else findM c xs
 
 -- | Find the first element in a `List` that repeats.
 -- It is possible that no element repeats, hence an `Optional` result.
@@ -155,12 +158,17 @@ findM =
 --
 -- prop> \xs -> case firstRepeat xs of Empty -> let xs' = hlist xs in nub xs' == xs'; Full x -> length (filter (== x) xs) > 1
 -- prop> \xs -> case firstRepeat xs of Empty -> True; Full x -> let (l, (rx :. rs)) = span (/= x) xs in let (l2, r2) = span (/= x) rs in let l3 = hlist (l ++ (rx :. Nil) ++ l2) in nub l3 == l3
+
 firstRepeat ::
   Ord a =>
   List a
   -> Optional a
-firstRepeat =
-  error "todo: Course.State#firstRepeat"
+firstRepeat xs = eval (findM f xs) S.empty
+    where f a = state $ \set ->
+                  if S.member a set
+                  then (True, set)
+                  else (False, S.insert a set)
+
 
 -- | Remove all duplicate elements in a `List`.
 -- /Tip:/ Use `filtering` and `State` with a @Data.Set#Set@.
@@ -172,8 +180,11 @@ distinct ::
   Ord a =>
   List a
   -> List a
-distinct =
-  error "todo: Course.State#distinct"
+distinct xs = eval (filtering f xs) S.empty
+    where f a = state $ \set ->
+                  if S.member a set
+                  then (False, set)
+                  else (True, S.insert a set)
 
 -- | A happy number is a positive integer, where the sum of the square of its digits eventually reaches 1 after repetition.
 -- In contrast, a sad number (not a happy number) is where the sum of the square of its digits never reaches 1
@@ -199,5 +210,5 @@ distinct =
 isHappy ::
   Integer
   -> Bool
-isHappy =
-  error "todo: Course.State#isHappy"
+isHappy = contains 1 . firstRepeat . produce squaredDigits
+    where squaredDigits = toInteger . sum . map (join (*) . digitToInt) . show'
