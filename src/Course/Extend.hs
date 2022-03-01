@@ -4,11 +4,11 @@
 
 module Course.Extend where
 
-import Course.Core
-import Course.ExactlyOne
-import Course.List
-import Course.Optional
-import Course.Functor
+import Course.Core ( id )
+import Course.ExactlyOne ( ExactlyOne(..) )
+import Course.List ( List(..) )
+import Course.Optional ( Optional(..) )
+import Course.Functor ( Functor )
 
 -- | All instances of the `Extend` type-class must satisfy one law. This law
 -- is not checked by the compiler. This law is given as:
